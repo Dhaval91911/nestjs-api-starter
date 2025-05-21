@@ -1,0 +1,19 @@
+image: node:18
+
+pipelines:
+  branches:
+    main:
+      - step:
+          name: 🚀 Deploy to EC2 on Push to main
+          deployment: production
+          script:
+            - pipe: atlassian/ssh-run:0.4.0
+              variables:
+                SSH_USER: "ubuntu"
+                SERVER: "13.203.161.164"
+                COMMAND: |
+                  cd ~/basefun
+                  git pull origin main
+                  npm install
+                  npm run build
+                  pm2 restart nest-app || pm2 start dist/main.js --name nest-app
