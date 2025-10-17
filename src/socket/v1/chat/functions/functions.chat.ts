@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model } from 'mongoose';
 import { UserSession } from '../../../../models/user_sessions.model';
@@ -25,6 +25,7 @@ import {
 
 @Injectable()
 export class ChatService {
+  private readonly logger = new Logger(ChatService.name);
   constructor(
     @InjectModel(UserSession.name) private userSessionModel: Model<UserSession>,
     @InjectModel(User.name) private userModel: Model<User>,
@@ -303,7 +304,9 @@ export class ChatService {
 
       return socketSuccessRes('Chat room created successfully', ChatRoomData);
     } catch (error: unknown) {
-      console.log('createRoom Error EMIT:', error);
+      this.logger.error(
+        `createRoom Error EMIT: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong!');
     }
   }
@@ -542,7 +545,9 @@ export class ChatService {
 
       return socketSuccessRes('Message sent successfully', findMessage);
     } catch (error) {
-      console.log('sendMessage Error EMIT:', error);
+      this.logger.error(
+        `sendMessage Error EMIT: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong!');
     }
   }
@@ -641,7 +646,9 @@ export class ChatService {
 
       return socketSuccessRes('Messages get successfully', findAllMessages);
     } catch (error) {
-      console.log('getAllMessage Error EMIT:', error);
+      this.logger.error(
+        `getAllMessage Error EMIT: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong!');
     }
   }
@@ -701,7 +708,9 @@ export class ChatService {
         isLastMessage,
       });
     } catch (error) {
-      console.log('editMessage Error EMIT:', error);
+      this.logger.error(
+        `editMessage Error EMIT: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong!');
     }
   }
@@ -753,7 +762,9 @@ export class ChatService {
         user_id: user_id,
       });
     } catch (error) {
-      console.log('deleteMessage Error EMIT:', error);
+      this.logger.error(
+        `deleteMessage Error EMIT: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong!');
     }
   }
@@ -788,7 +799,11 @@ export class ChatService {
       });
 
       if (updatedMessage && updatedMessage.message_type === 'media') {
-        console.log(updatedMessage && updatedMessage.message_type === 'media');
+        this.logger.log(
+          `deleteMessageForEveryone media check: ${
+            updatedMessage && updatedMessage.message_type === 'media'
+          }`
+        );
         if (
           updatedMessage &&
           updatedMessage.media_file &&
@@ -828,7 +843,9 @@ export class ChatService {
         isLastMessage,
       });
     } catch (error) {
-      console.log('deleteMessage Error EMIT:', error);
+      this.logger.error(
+        `deleteMessage Error EMIT: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong!');
     }
   }
@@ -854,7 +871,9 @@ export class ChatService {
 
       return socketSuccessRes('Messages read successfully', { chat_room_id });
     } catch (error) {
-      console.log('readMessage Error EMIT:', error);
+      this.logger.error(
+        `readMessage Error EMIT: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong!');
     }
   }
@@ -1097,7 +1116,9 @@ export class ChatService {
 
       return socketSuccessRes('User list get successfully', findAllRooms);
     } catch (error) {
-      console.log('chatUserList Error EMIT:', error);
+      this.logger.error(
+        `chatUserList Error EMIT: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong!');
     }
   }
@@ -1325,7 +1346,9 @@ export class ChatService {
 
       return socketSuccessRes('User list get successfully', findRoom);
     } catch (error) {
-      console.log('chatUserList Error EMIT:', error);
+      this.logger.error(
+        `chatUserList Error EMIT: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong!');
     }
   }
@@ -1353,7 +1376,9 @@ export class ChatService {
 
       return socketSuccessRes('Chat deleted successfully', { chat_room_id });
     } catch (error) {
-      console.log('deleteChatRoom Error EMIT:', error);
+      this.logger.error(
+        `deleteChatRoom Error EMIT: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong!');
     }
   }
@@ -1400,7 +1425,9 @@ export class ChatService {
 
       return socketSuccessRes('Screen status changed successfully', []);
     } catch (error) {
-      console.log('=== changeScreenStatus ===', error);
+      this.logger.error(
+        `changeScreenStatus Error: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Error in changeScreenStatus');
     }
   }

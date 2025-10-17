@@ -31,7 +31,7 @@ import {
   CheckUserIsOnlineData,
 } from './interfaces/chat.interfaces';
 import { SocketAuthGuard } from '../../../common/guards/socket-auth.guard';
-import { UseGuards } from '@nestjs/common';
+import { UseGuards, Logger } from '@nestjs/common';
 
 export interface SocketData extends Socket {
   data: {
@@ -41,10 +41,29 @@ export interface SocketData extends Socket {
   };
 }
 
+// Comma-separated list of allowed origins supplied via env (e.g. "https://app.com,https://admin.app.com")
+const allowedOriginsEnv = process.env.CORS_ORIGINS ?? '';
+if (!allowedOriginsEnv) {
+  // Fail-fast: credentials:true with a wildcard is a security risk
+  throw new Error(
+    'CORS_ORIGINS environment variable must be set for WebSockets'
+  );
+}
+const wsAllowedOrigins = allowedOriginsEnv
+  ? allowedOriginsEnv.split(',').map((o) => o.trim())
+  : ['http://localhost:3000'];
+
+// Security guard: disallow any wildcard origins when credentials are enabled.
+if (wsAllowedOrigins.some((o) => o === '*' || o === '/*')) {
+  throw new Error(
+    'CORS_ORIGINS must not contain "*" when credentials are enabled'
+  );
+}
+
 @UseGuards(SocketAuthGuard)
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: wsAllowedOrigins,
     credentials: true,
   },
   namespace: 'v1',
@@ -54,6 +73,7 @@ export class ChatGateway
 {
   @WebSocketServer()
   server!: Server;
+  private readonly logger = new Logger(ChatGateway.name);
 
   constructor(
     @InjectModel(UserSession.name) private userSessionModel: Model<UserSession>,
@@ -66,7 +86,7 @@ export class ChatGateway
   ) {}
 
   afterInit() {
-    console.log('✅ Socket server initialized');
+    this.logger.log('✅ Socket server initialized');
   }
 
   async handleConnection(socket: Socket) {
@@ -75,17 +95,19 @@ export class ChatGateway
         if (err) {
           socket.emit('error', { message: 'Authentication failed.' });
         }
-        console.log('User connected', socket.id);
+        this.logger.log(`User connected ${socket.id}`);
       });
     } catch (error: unknown) {
-      console.log('connection error', error);
+      this.logger.error(
+        `connection error: ${error instanceof Error ? error.message : String(error)}`
+      );
       socket.emit('error', { message: 'Authentication failed.' });
     }
   }
 
   async handleDisconnect(socket: Socket) {
     try {
-      console.log('User disconnected', socket.id);
+      this.logger.log(`User disconnected ${socket.id}`);
       const data = { socket_id: socket.id };
       const disconnect_user =
         await this.socketConnectFunctions.disconnectSocket(data, this.server);
@@ -94,7 +116,9 @@ export class ChatGateway
         this.server.emit('userIsOffline', disconnect_user);
       }
     } catch (error: unknown) {
-      console.log('Socket Disconnect Error', error);
+      this.logger.error(
+        `Socket Disconnect Error: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -109,7 +133,7 @@ export class ChatGateway
         socket_id: socket.id,
         user_id: socket.data.user._id,
       };
-      console.log('setSocketId on :: ', data);
+      this.logger.log(`setSocketId on :: ${JSON.stringify(data)}`);
 
       await socket.join(data.user_id.toString());
 
@@ -122,7 +146,9 @@ export class ChatGateway
         this.server.emit('userIsOnline', findUserOnline);
       }
     } catch (error: unknown) {
-      console.log('Set Socket ID Error', error);
+      this.logger.error(
+        `Set Socket ID Error: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -135,7 +161,9 @@ export class ChatGateway
       const result = await this.socketConnectFunctions.checkUserIsOnline(data);
       socket.emit('checkUserIsOnline', result);
     } catch (error: unknown) {
-      console.log('Check User Online Error:', error);
+      this.logger.error(
+        `Check User Online Error: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -150,12 +178,14 @@ export class ChatGateway
         user_id: socket.data.user._id,
       };
 
-      console.log('createRoom on :: ', data);
+      this.logger.log(`createRoom on :: ${JSON.stringify(data)}`);
 
       const createRoomData = await this.chatService.createRoom(data);
       socket.emit('createRoom', createRoomData);
     } catch (error) {
-      console.log('createRoom Error ON:', error);
+      this.logger.error(
+        `createRoom Error ON: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -170,7 +200,7 @@ export class ChatGateway
         sender_id: socket.data.user._id,
       };
 
-      console.log('sendMessage on :: ', data);
+      this.logger.log(`sendMessage on :: ${JSON.stringify(data)}`);
 
       const newMessage = await this.chatService.sendMessage(data);
       if (newMessage.success) {
@@ -199,7 +229,9 @@ export class ChatGateway
           .emit('sendMessage', newMessage);
       }
     } catch (error) {
-      console.log('sendMessage Error ON:', error);
+      this.logger.error(
+        `sendMessage Error ON: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -213,13 +245,15 @@ export class ChatGateway
         ...data,
         user_id: socket.data.user._id,
       };
-      console.log('getAllMessage  on :: ', data);
+      this.logger.log(`getAllMessage on :: ${JSON.stringify(data)}`);
       await socket.join(data.chat_room_id);
 
       const find_chats = await this.chatService.getAllMessage(data);
       socket.emit('getAllMessage', find_chats);
     } catch (error) {
-      console.log('getAllMessage Error ON:', error);
+      this.logger.error(
+        `getAllMessage Error ON: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -233,7 +267,7 @@ export class ChatGateway
         ...data,
         user_id: socket.data.user._id,
       };
-      console.log('editMessage  on :: ', data);
+      this.logger.log(`editMessage on :: ${JSON.stringify(data)}`);
       await socket.join(data.chat_room_id);
 
       const editMessageData = await this.chatService.editMessage(data);
@@ -274,7 +308,9 @@ export class ChatGateway
         socket.emit('editMessage', editMessageData);
       }
     } catch (error) {
-      console.log('editMessage Error ON:', error);
+      this.logger.error(
+        `editMessage Error ON: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -288,7 +324,7 @@ export class ChatGateway
         ...data,
         user_id: socket.data.user._id,
       };
-      console.log('deleteMessage  on :: ', data);
+      this.logger.log(`deleteMessage on :: ${JSON.stringify(data)}`);
       await socket.join(data.chat_room_id.toString());
 
       const deleteMessageData = await this.chatService.deleteMessage(data);
@@ -309,7 +345,9 @@ export class ChatGateway
         socket.emit('deleteMessage', deleteMessageData);
       }
     } catch (error) {
-      console.log('deleteMessage Error ON:', error);
+      this.logger.error(
+        `deleteMessage Error ON: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -323,7 +361,7 @@ export class ChatGateway
         ...data,
         user_id: socket.data.user._id,
       };
-      console.log('deleteMessageForEveryOne  on :: ', data);
+      this.logger.log(`deleteMessageForEveryOne on :: ${JSON.stringify(data)}`);
       await socket.join(data.chat_room_id.toString());
 
       const deleteMessageForEveryOneData =
@@ -363,7 +401,9 @@ export class ChatGateway
         socket.emit('deleteMessageForEveryOne', deleteMessageForEveryOneData);
       }
     } catch (error) {
-      console.log('deleteMessage Error ON:', error);
+      this.logger.error(
+        `deleteMessage Error ON: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -377,7 +417,7 @@ export class ChatGateway
         ...data,
         user_id: socket.data.user._id,
       };
-      console.log('readMessage  on :: ', data);
+      this.logger.log(`readMessage on :: ${JSON.stringify(data)}`);
       await socket.join(data.chat_room_id);
 
       const readMessages = await this.chatService.readMessage(data);
@@ -393,7 +433,9 @@ export class ChatGateway
         .to(data.user_id.toString())
         .emit('updatedChatRoomData', senderChatListData);
     } catch (error) {
-      console.log('readMessage Error ON:', error);
+      this.logger.error(
+        `readMessage Error ON: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -408,12 +450,14 @@ export class ChatGateway
         user_id: socket.data.user._id,
       };
 
-      console.log('chatUserList  on :: ', data);
+      this.logger.log(`chatUserList on :: ${JSON.stringify(data)}`);
       await socket.join(data.user_id.toString());
       const result = await this.chatService.chatUserList(data);
       socket.emit('chatUserList', result);
     } catch (error) {
-      console.log('chatUserList Error ON:', error);
+      this.logger.error(
+        `chatUserList Error ON: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -427,7 +471,7 @@ export class ChatGateway
         ...data,
         user_id: socket.data.user._id,
       };
-      console.log('deleteChatRoom  on :: ', data);
+      this.logger.log(`deleteChatRoom on :: ${JSON.stringify(data)}`);
 
       const deleteChatData = await this.chatService.deleteChatRoom(data);
 
@@ -439,7 +483,9 @@ export class ChatGateway
         socket.emit('deleteChatRoom', deleteChatData);
       }
     } catch (error) {
-      console.log('deleteChatRoom Error ON:', error);
+      this.logger.error(
+        `deleteChatRoom Error ON: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -454,13 +500,17 @@ export class ChatGateway
         user_id: socket.data.user._id,
         socket_id: socket.id,
       };
-      console.log(' -----------  changeScreenStatus  -----------  ', data);
+      this.logger.log(
+        ` -----------  changeScreenStatus  -----------  ${JSON.stringify(data)}`
+      );
 
       const change_screen_status =
         await this.chatService.changeScreenStatus(data);
       socket.emit('changeScreenStatus', change_screen_status);
     } catch (error) {
-      console.log('=== changeScreenStatus ===', error);
+      this.logger.error(
+        `=== changeScreenStatus === ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }

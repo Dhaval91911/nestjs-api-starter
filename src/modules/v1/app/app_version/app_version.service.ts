@@ -58,10 +58,10 @@ export class AppVersionService {
     let app_update_status = '';
 
     if (check_version) {
-      if (check_version.app_version != app_version) {
+      if (check_version.app_version !== app_version) {
         app_update_status = check_version.app_update_status ?? '';
 
-        if (app_update_status == 'is_force_update') {
+        if (app_update_status === 'is_force_update') {
           result = {
             ...result,
             is_need_update: true,
@@ -91,7 +91,7 @@ export class AppVersionService {
 
       app_update_status = latestVersion?.app_update_status ?? '';
 
-      if (app_update_status == 'is_force_update') {
+      if (app_update_status === 'is_force_update') {
         result = { ...result, is_need_update: true, is_force_update: true };
       } else {
         result = {

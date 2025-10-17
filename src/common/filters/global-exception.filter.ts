@@ -8,6 +8,24 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+// Keys that should be redacted if present in an object that will be logged.
+const SENSITIVE_KEYS = [/password/i, /token/i, /secret/i, /authorization/i];
+function redactSensitive(obj: unknown): unknown {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(redactSensitive);
+  const clone: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    if (SENSITIVE_KEYS.some((re) => re.test(k))) {
+      clone[k] = '[REDACTED]';
+    } else if (typeof v === 'object') {
+      clone[k] = redactSensitive(v);
+    } else {
+      clone[k] = v;
+    }
+  }
+  return clone;
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
@@ -54,9 +72,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const stack =
       exception instanceof Error ? exception.stack : 'Unknown error';
     const isAuthExpected = status === 401 || status === 403;
+    // In production, avoid logging potentially sensitive request bodies
+    const safeBody = redactSensitive(request.body ?? {});
+    const logPayload = {
+      ...errorResponse,
+      method: request.method,
+      path: request.url,
+      body: process.env.NODE_ENV === 'production' ? undefined : safeBody,
+    };
+
     if (status >= 500) {
       this.logger.error(
-        `${request.method} ${request.url} - ${status} - ${JSON.stringify(errorResponse)}`,
+        `${request.method} ${request.url} - ${status} - ${JSON.stringify(logPayload)}`,
         stack
       );
     } else if (isAuthExpected) {

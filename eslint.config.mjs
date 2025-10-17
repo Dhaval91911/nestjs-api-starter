@@ -25,9 +25,15 @@ export default tseslint.config(
   },
   {
     rules: {
+      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      eqeqeq: ['error', 'always'],
+      'prettier/prettier': 'error',
+      // strict: ['error', 'global'],
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
+      'no-console': 'off',
     },
-  }
+  },
 );

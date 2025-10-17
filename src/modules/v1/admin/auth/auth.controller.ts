@@ -19,10 +19,7 @@ import {
 import { successRes, errorRes } from 'src/common/responses.common';
 import { Response, Request } from 'express';
 import { I18n, I18nContext } from 'nestjs-i18n';
-import {
-  comparePassword,
-  securePassword,
-} from 'src/utils/secure_password.util';
+import { comparePassword } from 'src/utils/secure_password.util';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { AdminOnlyGuard } from 'src/common/guards/role.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
@@ -98,12 +95,24 @@ export class AuthController {
       );
     }
 
-    const data = await this.authService.signUp(dto);
-    return successRes(
-      res,
-      i18n.t('common.Admin account created successfully.'),
-      data
-    );
+    try {
+      const data = await this.authService.signUp(dto);
+      return successRes(
+        res,
+        i18n.t('common.Admin account created successfully.'),
+        data
+      );
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === 'EMAIL_EXISTS') {
+        return errorRes(
+          res,
+          i18n.t(
+            'common.This email address is already registered. Please use a different email or log in to your existing account.'
+          )
+        );
+      }
+      throw error;
+    }
   }
 
   @ApiResponse({
@@ -174,7 +183,10 @@ export class AuthController {
       );
     }
 
-    const password_verify = comparePassword(dto.password, find_admin.password!);
+    const password_verify = await comparePassword(
+      dto.password,
+      find_admin.password!
+    );
 
     if (!password_verify) {
       return errorRes(
@@ -242,7 +254,7 @@ export class AuthController {
     @Res() res: Response,
     @I18n() i18n: I18nContext
   ) {
-    const password_verify = comparePassword(
+    const password_verify = await comparePassword(
       dto.old_password,
       String(user.password ?? '')
     );
@@ -256,11 +268,14 @@ export class AuthController {
       );
     }
 
-    const hashedPassword = securePassword(dto.new_password);
-
     const find_admin = await this.authService.findUser({ _id: user._id });
 
-    if (find_admin?.password == hashedPassword) {
+    if (
+      await comparePassword(
+        dto.new_password,
+        String(find_admin?.password ?? '')
+      )
+    ) {
       return errorRes(
         res,
         i18n.t(

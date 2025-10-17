@@ -1,9 +1,7 @@
 import * as admin from 'firebase-admin';
 import { google } from 'googleapis';
 import axios from 'axios';
-import { Injectable } from '@nestjs/common';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { Injectable, Logger } from '@nestjs/common';
 import { Types } from 'mongoose';
 
 interface NotifyBase {
@@ -18,31 +16,61 @@ interface NotifyBase {
   sound_name?: string;
   details?: unknown;
   device_token?: string[];
+  pet_id?: Types.ObjectId;
+}
+
+interface ServiceAccountJson {
+  project_id: string;
+  client_email: string;
+  private_key: string;
 }
 
 @Injectable()
 export class NotificationService {
-  private projectId = process.env.PROJECT_ID!;
+  private projectId: string;
+  private readonly logger = new Logger(NotificationService.name);
 
   constructor() {
-    const saPath = join(process.cwd(), process.env.FIREBASE_SA_PATH!);
-    const serviceAccount: admin.ServiceAccount = JSON.parse(
-      readFileSync(saPath, 'utf8')
-    ) as unknown as admin.ServiceAccount;
+    // Prefer ENV-based credentials to avoid bundling serviceAccount.json
+    let sa: ServiceAccountJson | null = null;
+
+    if (
+      process.env.FIREBASE_PROJECT_ID &&
+      process.env.FIREBASE_CLIENT_EMAIL &&
+      process.env.FIREBASE_PRIVATE_KEY
+    ) {
+      sa = {
+        project_id: process.env.FIREBASE_PROJECT_ID,
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        // Replace escaped newlines ("\n") so that multiline keys work from .env files
+        // private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        private_key: process.env.FIREBASE_PRIVATE_KEY,
+      };
+    } else {
+      throw new Error(
+        'Firebase credentials not provided. Set FIREBASE_* env vars or FIREBASE_SA_PATH'
+      );
+    }
+    // At this point `sa` is guaranteed to be non-null
     if (!admin.apps.length) {
       admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
+        credential: admin.credential.cert({
+          projectId: sa.project_id,
+          clientEmail: sa.client_email,
+          privateKey: sa.private_key,
+        }),
       });
     }
-    this.serviceAccount = serviceAccount;
+    this.saJson = sa;
+    this.projectId = process.env.PROJECT_ID || sa.project_id;
   }
 
-  private serviceAccount: admin.ServiceAccount;
+  private saJson: ServiceAccountJson;
 
   private async getAccessToken(): Promise<string> {
     const jwtClient = new google.auth.JWT({
-      email: this.serviceAccount.clientEmail!,
-      key: this.serviceAccount.privateKey!,
+      email: this.saJson.client_email,
+      key: this.saJson.private_key,
       scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
     });
     const { access_token } = await jwtClient.authorize();
@@ -98,7 +126,7 @@ export class NotificationService {
       sound: sound_name + '.caf',
     };
 
-    if (details != undefined) {
+    if (details !== undefined) {
       messageBody.details = details;
     }
 
@@ -108,7 +136,7 @@ export class NotificationService {
       // sound: sound_name + '.caf',
     };
 
-    if (noti_image != undefined) {
+    if (noti_image !== undefined) {
       noti_payload.image = noti_image;
     }
 
@@ -134,7 +162,13 @@ export class NotificationService {
         }
       );
     } catch (error: any) {
-      console.error('Error sending notification:', error);
+      this.logger.error(
+        `Error sending notification: ${
+          axios.isAxiosError(error) && error.response
+            ? JSON.stringify(error.response.data)
+            : (error as Error).message
+        }`
+      );
     }
   }
 
@@ -164,7 +198,7 @@ export class NotificationService {
         topic
       );
       if (!subscribeResult.success) {
-        console.error('Subscription failed:', subscribeResult.error);
+        this.logger.error(`Subscription failed: ${subscribeResult.error}`);
         return;
       }
 
@@ -193,13 +227,13 @@ export class NotificationService {
           android: {
             notification: {
               sound:
-                sound_name && sound_name.toLowerCase() == 'none'
+                sound_name && sound_name.toLowerCase() === 'none'
                   ? ''
                   : sound_name
                     ? `${sound_name}.wav`
                     : 'default',
               channel_id:
-                sound_name && sound_name.toLowerCase() == 'none'
+                sound_name && sound_name.toLowerCase() === 'none'
                   ? 'none'
                   : sound_name
                     ? `${sound_name}`
@@ -211,7 +245,7 @@ export class NotificationService {
             payload: {
               aps: {
                 sound:
-                  sound_name && sound_name.toLowerCase() == 'none'
+                  sound_name && sound_name.toLowerCase() === 'none'
                     ? ''
                     : sound_name
                       ? `${sound_name}.caf`
@@ -235,13 +269,14 @@ export class NotificationService {
           }
         );
 
-        console.log('Notification sent to topic:', topic);
+        this.logger.log(`Notification sent to topic: ${topic}`);
       } catch (error: any) {
-        console.error(
-          'Error sending notification to topic',
-          axios.isAxiosError(error) && error.response
-            ? error.response.data
-            : (error as Error).message
+        this.logger.error(
+          `Error sending notification to topic: ${
+            axios.isAxiosError(error) && error.response
+              ? JSON.stringify(error.response.data)
+              : (error as Error).message
+          }`
         );
       }
 
@@ -250,11 +285,11 @@ export class NotificationService {
         topic
       );
       if (!unsubscribeResult.success) {
-        console.error('Unsubscription failed:', unsubscribeResult.error);
+        this.logger.error(`Unsubscription failed: ${unsubscribeResult.error}`);
         return;
       }
 
-      console.log('Notification sent and tokens unsubscribed');
+      this.logger.log('Notification sent and tokens unsubscribed');
     }
   }
 }

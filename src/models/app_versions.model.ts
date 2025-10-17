@@ -49,3 +49,5 @@ export class AppVersion implements IAppVersion {
 }
 
 export const AppVersionSchema = SchemaFactory.createForClass(AppVersion);
+// Quick lookup for latest live version by platform
+AppVersionSchema.index({ app_platform: 1, is_live: 1, is_deleted: 1 });

@@ -26,3 +26,6 @@ export class ChatRoom implements IChatRoom {
 }
 
 export const ChatRoomSchema = SchemaFactory.createForClass(ChatRoom);
+
+// Ensure unique compound index so each pair of users has only one room
+ChatRoomSchema.index({ user_id: 1, other_user_id: 1 }, { unique: true });

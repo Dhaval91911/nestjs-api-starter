@@ -28,3 +28,7 @@ export class UserAlbum implements IUserAlbum {
 }
 
 export const UserAlbumSchema = SchemaFactory.createForClass(UserAlbum);
+// Fetch albums per user quickly, ordered by recency
+UserAlbumSchema.index({ user_id: 1, createdAt: -1 });
+// Allow filtering by album_type for media tabs
+UserAlbumSchema.index({ album_type: 1 });

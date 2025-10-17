@@ -1,40 +1,32 @@
-import { createCipheriv, createDecipheriv } from 'crypto';
+/**
+ * Password hashing helpers using `bcrypt`.
+ *
+ * Environment variable: `BCRYPT_SALT_ROUNDS` (defaults to 12)
+ */
+import bcrypt from 'bcrypt';
 
-interface CryptoConfig {
-  algorithm: string;
-  initVector: string;
-  securityKey: string;
+const SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS ?? 12);
+
+/**
+ * Hash a plain-text password using bcrypt.
+ *
+ * @param password - Plain user password.
+ * @returns bcrypt hash string.
+ */
+export async function securePassword(password: string): Promise<string> {
+  return bcrypt.hash(password, SALT_ROUNDS);
 }
 
-const cryptoConfig: CryptoConfig = {
-  algorithm: process.env.ALGORITHM as string,
-  initVector: process.env.INITVECTOR as string,
-  securityKey: process.env.SECURITYKEY as string,
-};
-
-export function securePassword(password: string): string {
-  const cipher = createCipheriv(
-    cryptoConfig.algorithm,
-    cryptoConfig.securityKey,
-    cryptoConfig.initVector
-  );
-  let encryptedData = cipher.update(password, 'utf8', 'hex');
-  encryptedData += cipher.final('hex');
-  return encryptedData;
-}
-
-export function decryptPassword(password: string): string {
-  const decipher = createDecipheriv(
-    cryptoConfig.algorithm,
-    cryptoConfig.securityKey,
-    cryptoConfig.initVector
-  );
-  let decryptedData = decipher.update(password, 'hex', 'utf8');
-  decryptedData += decipher.final('utf8');
-  return decryptedData;
-}
-
-export function comparePassword(password: string, dbPassword: string): boolean {
-  const original = decryptPassword(dbPassword);
-  return original === password;
+/**
+ * Compare a plain-text password against a bcrypt hash.
+ *
+ * @param password - Plain password provided by user.
+ * @param hash - Previously hashed password stored in DB.
+ * @returns `true` if match else `false`.
+ */
+export async function comparePassword(
+  password: string,
+  hash: string
+): Promise<boolean> {
+  return bcrypt.compare(password, hash);
 }

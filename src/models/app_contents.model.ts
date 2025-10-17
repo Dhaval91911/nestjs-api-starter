@@ -26,3 +26,5 @@ export class AppContent implements IAppContent {
 }
 
 export const AppContentSchema = SchemaFactory.createForClass(AppContent);
+// Content is usually fetched by type (e.g., privacy_policy)
+AppContentSchema.index({ content_type: 1 });

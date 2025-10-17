@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from '../../../../models/users.model';
@@ -12,6 +12,7 @@ import {
 
 @Injectable()
 export class SocketConnectFunctions {
+  private readonly logger = new Logger(SocketConnectFunctions.name);
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(UserSession.name) private userSessionModel: Model<UserSession>,
@@ -53,7 +54,9 @@ export class SocketConnectFunctions {
         return socketErrorRes('User not found!', null);
       }
     } catch (error: any) {
-      console.log('setSocketId error', error);
+      this.logger.error(
+        `setSocketId error: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong', error);
     }
   }
@@ -151,7 +154,9 @@ export class SocketConnectFunctions {
         return socketErrorRes('User session not found', null);
       }
     } catch (error: any) {
-      console.log('error', error || 'Unknown error');
+      this.logger.error(
+        `disconnectSocket error: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong', error);
     }
   }
@@ -180,7 +185,9 @@ export class SocketConnectFunctions {
         return socketErrorRes('User not found', null);
       }
     } catch (error: any) {
-      console.log('error', error);
+      this.logger.error(
+        `checkUserIsOnline error: ${error instanceof Error ? error.message : String(error)}`
+      );
       return socketErrorRes('Something went wrong', error);
     }
   }

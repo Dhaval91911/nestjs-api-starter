@@ -39,7 +39,10 @@ export class JwtAuthGuard implements CanActivate {
     const session = await this.sessionModel.findOne({ auth_token: token });
     if (!session) throw new UnauthorizedException('Authentication failed.');
 
-    const payload = jwt.verify(token, process.env.TOKEN_KEY as string) as {
+    const payload = jwt.verify(token, process.env.TOKEN_KEY as string, {
+      issuer: process.env.TOKEN_ISSUER ?? 'pet-api',
+      audience: process.env.TOKEN_AUDIENCE ?? 'pet-app',
+    }) as {
       id: string;
     };
 

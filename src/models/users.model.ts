@@ -52,6 +52,7 @@ export class User implements IUser {
     trim: true,
     lowercase: true,
     required: true,
+    unique: true,
   })
   email_address!: string;
 
@@ -106,3 +107,6 @@ export const UserSchema = SchemaFactory.createForClass(User);
 
 // Geospatial index for location field
 UserSchema.index({ location: '2dsphere' });
+// Unique index on email address for safety at DB level
+UserSchema.index({ mobile_number: 1 }, { unique: true });
+UserSchema.index({ social_id: 1, social_platform: 1 });

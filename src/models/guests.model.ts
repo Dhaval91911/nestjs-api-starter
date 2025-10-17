@@ -43,3 +43,5 @@ export class Guest implements IGuest {
 
 export const GuestSchema = SchemaFactory.createForClass(Guest);
 GuestSchema.index({ location: '2dsphere' });
+// Ensure quick lookup by device token (frequently queried for push notifications)
+GuestSchema.index({ device_token: 1 });

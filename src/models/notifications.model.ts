@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export type NotificationFor = 'chat_notification' | 'new_review';
+export type NotificationFor = 'test';
 
 export interface INotification {
   sender_id: Types.ObjectId;
@@ -13,8 +13,12 @@ export interface INotification {
   chat_room_id?: Types.ObjectId;
   chat_id?: Types.ObjectId;
   review_id?: Types.ObjectId;
+  pet_id?: Types.ObjectId;
+  service_id?: Types.ObjectId;
+  community_id?: Types.ObjectId;
   noti_date?: Date;
   deleted_by_user?: Types.ObjectId[];
+  is_read?: boolean;
   is_deleted?: boolean;
 }
 
@@ -39,7 +43,7 @@ export class Notification implements INotification {
 
   @Prop({
     type: String,
-    enum: ['chat_notification', 'new_review'],
+    enum: ['test'],
   })
   noti_for?: NotificationFor;
 
@@ -51,6 +55,9 @@ export class Notification implements INotification {
 
   @Prop({ type: Types.ObjectId, ref: 'user_reviews' })
   review_id?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'pets' })
+  pet_id?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'services' })
   service_id?: Types.ObjectId;
@@ -65,7 +72,13 @@ export class Notification implements INotification {
   deleted_by_user?: Types.ObjectId[];
 
   @Prop({ type: Boolean, default: false })
+  is_read?: boolean;
+
+  @Prop({ type: Boolean, default: false })
   is_deleted?: boolean;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
+
+// Frequently fetched per receiver with read status ordered by recency
+NotificationSchema.index({ receiver_id: 1, is_read: 1, createdAt: -1 });

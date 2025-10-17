@@ -1,6 +1,6 @@
 import * as jwt from 'jsonwebtoken';
 import { InjectModel } from '@nestjs/mongoose';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Model, FilterQuery, Document } from 'mongoose';
 import { Socket } from 'socket.io';
 import { UserSession } from '../../models/user_sessions.model';
@@ -20,6 +20,7 @@ interface AuthenticatedSocket extends Socket {
 
 @Injectable()
 export class SocketAuthGuard {
+  private readonly logger = new Logger(SocketAuthGuard.name);
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
     @InjectModel(UserSession.name)
@@ -46,10 +47,10 @@ export class SocketAuthGuard {
       });
       if (!findUserSession) return next(new Error('Authentication failed.'));
 
-      const payload = jwt.verify(
-        bearerToken,
-        process.env.TOKEN_KEY as string
-      ) as { id: string };
+      const payload = jwt.verify(bearerToken, process.env.TOKEN_KEY as string, {
+        issuer: process.env.TOKEN_ISSUER ?? 'pet-api',
+        audience: process.env.TOKEN_AUDIENCE ?? 'pet-app',
+      }) as { id: string };
 
       const filter: FilterQuery<User> = {
         _id: payload.id,
@@ -64,8 +65,10 @@ export class SocketAuthGuard {
       socket.data = { user };
 
       return next();
-    } catch (err: any) {
-      console.error('SocketAuth middleware error:', err);
+    } catch (error: any) {
+      this.logger.error(
+        `SocketAuth middleware error: ${(error as Error)?.message || ''}`
+      );
       return next(new Error('Authentication failed.'));
     }
   }

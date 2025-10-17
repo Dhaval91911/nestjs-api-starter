@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
+import { validationSchema } from './config/validation.schema';
 import { DatabaseConfig } from './config/database.config';
 import { AuthModule } from './modules/v1/admin/auth/auth.module';
 import { AcceptLanguageResolver, I18nModule } from 'nestjs-i18n';
@@ -19,6 +20,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppContentService } from './modules/v1/admin/app_content/app_content.service';
 import { AppContentModule } from './modules/v1/admin/app_content/app_content.module';
 import { AppVersionModule } from './modules/v1/app/app_version/app_version.module';
+import { HealthController } from './health.controller';
+import { MetricsController } from './metrics.controller';
 
 @Module({
   imports: [
@@ -26,6 +29,7 @@ import { AppVersionModule } from './modules/v1/app/app_version/app_version.modul
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validationSchema,
     }),
     DatabaseConfig,
     AuthModule,
@@ -37,11 +41,12 @@ import { AppVersionModule } from './modules/v1/app/app_version/app_version.modul
         AcceptLanguageResolver,
       ],
     }),
+    // Global rate-limiting: TTL in seconds (not ms). Use env vars RATE_LIMIT_TTL & RATE_LIMIT_LIMIT to override.
     ThrottlerModule.forRoot({
       throttlers: [
         {
-          ttl: 1000,
-          limit: 3,
+          ttl: Number(process.env.RATE_LIMIT_TTL ?? 60),
+          limit: Number(process.env.RATE_LIMIT_LIMIT ?? 100),
         },
       ],
     }),
@@ -51,7 +56,7 @@ import { AppVersionModule } from './modules/v1/app/app_version/app_version.modul
     AppContentModule,
     AppVersionModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, HealthController, MetricsController],
   providers: [
     AppService,
     SocketAuthGuard,

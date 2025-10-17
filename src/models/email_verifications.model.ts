@@ -27,3 +27,5 @@ export class EmailVerification implements IEmailVerification {
 
 export const EmailVerificationSchema =
   SchemaFactory.createForClass(EmailVerification);
+// Ensure quick lookups by email
+EmailVerificationSchema.index({ email_address: 1 }, { unique: true });

@@ -147,3 +147,9 @@ export class Chat implements IChat {
 }
 
 export const ChatSchema = SchemaFactory.createForClass(Chat);
+// Compound index to fetch latest chats quickly within a room
+ChatSchema.index({ chat_room_id: 1, createdAt: -1 });
+// Index to quickly fetch unread messages per receiver
+ChatSchema.index({ receiver_id: 1, is_read: 1 });
+// Index to quickly fetch latest messages per sender
+ChatSchema.index({ sender_id: 1, message_time: -1 });

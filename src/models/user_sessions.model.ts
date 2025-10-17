@@ -7,6 +7,8 @@ export interface IUserSession {
   device_token: string;
   device_type: 'ios' | 'android' | 'web';
   auth_token?: string;
+  refresh_token_hash?: string | null;
+  refresh_token_expires_at?: Date | null;
   socket_id?: string | null;
   chat_room_id?: Types.ObjectId;
   is_login?: boolean;
@@ -33,6 +35,12 @@ export class UserSession implements IUserSession {
   auth_token?: string;
 
   @Prop({ type: String, default: null })
+  refresh_token_hash?: string | null;
+
+  @Prop({ type: Date, default: null })
+  refresh_token_expires_at?: Date | null;
+
+  @Prop({ type: String, default: null })
   socket_id?: string | null;
 
   @Prop({ type: Types.ObjectId, ref: 'chat_rooms' })
@@ -46,3 +54,17 @@ export class UserSession implements IUserSession {
 }
 
 export const UserSessionSchema = SchemaFactory.createForClass(UserSession);
+
+// Compound index to speed up queries by user and active status
+UserSessionSchema.index({ user_id: 1, is_active: 1 });
+// Index to quickly look up by socket id
+UserSessionSchema.index({ socket_id: 1 });
+// Device token uniqueness per app installation
+UserSessionSchema.index({ device_token: 1 });
+// Quickly look up session via bearer token
+UserSessionSchema.index({ auth_token: 1 });
+// Auto-expire refresh tokens
+UserSessionSchema.index(
+  { refresh_token_expires_at: 1 },
+  { expireAfterSeconds: 0 }
+);

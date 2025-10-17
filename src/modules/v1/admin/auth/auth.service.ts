@@ -72,12 +72,22 @@ export class AuthService {
     const { full_name, email_address, password, device_token, device_type } =
       dto;
 
+    const existingUser = await this.userModel.findOne({
+      email_address: email_address,
+      is_deleted: false,
+    });
+    if (existingUser) {
+      throw new Error('EMAIL_EXISTS');
+    }
+
     await this.emailVerificationModel.create({
       email_address: email_address,
       is_email_verified: true,
     });
 
-    const hashedPassword = password ? securePassword(password) : undefined;
+    const hashedPassword = password
+      ? await securePassword(password)
+      : undefined;
 
     const insert_admin_data = {
       full_name: full_name,
@@ -151,7 +161,7 @@ export class AuthService {
     const { _id, token } = user;
     const { new_password } = dto;
 
-    const hashedPassword = securePassword(new_password);
+    const hashedPassword = await securePassword(new_password);
 
     await this.userModel.findByIdAndUpdate(_id, { password: hashedPassword });
 
@@ -198,7 +208,7 @@ export class AuthService {
 
     const find_admin = await this.findVerifyEmailAddress({ email_address });
 
-    if (find_admin?.otp != null && find_admin?.otp === otp) {
+    if (find_admin?.otp !== null && find_admin?.otp === otp) {
       const update_data = {
         otp: null,
       };
@@ -223,7 +233,7 @@ export class AuthService {
   async resetPassword(dto: ResetPasswordDto) {
     const { email_address, password } = dto;
 
-    const hashedPassword = securePassword(password);
+    const hashedPassword = await securePassword(password);
 
     await this.userModel.updateOne(
       { email_address: email_address },

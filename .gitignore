@@ -1,3 +1,20 @@
+node_modules/
+dist/
+.DS_Store
+.env
+.env.*
+!.env.example
+coverage/
+.pnpm-store/
+
+# Secrets and credentials
+src/config/serviceAccount.json
+*.pem
+*.key
+*.p12
+*.cer
+*.crt
+*.der
 # compiled output
 /dist
 /node_modules
